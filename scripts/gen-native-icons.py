@@ -105,10 +105,11 @@ def render(size, content_fraction, background, ss=SS):
 
 
 def main():
-    # Adaptive front layer: artwork only. The design is a wide rectangle, so it
-    # is scaled to keep even its corners inside the adaptive safe circle (a
-    # circular launcher mask must not clip the TV frame).
-    render(1024, 0.52, None).save("assets/icon-foreground.png")
+    # Adaptive front layer: artwork only, scaled to fill the visible masked
+    # area (the central 72/108 of the canvas) so it does not look tiny. On a
+    # pure-circle launcher mask the wide TV's corners are trimmed slightly;
+    # rounded-square / squircle masks (the common case) show it in full.
+    render(1024, 0.70, None).save("assets/icon-foreground.png")
     # Adaptive back layer: solid colour, no artwork.
     render(1024, 0.0, "solid").save("assets/icon-background.png")
     # Legacy icon: full composited badge.
