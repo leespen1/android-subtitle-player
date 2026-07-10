@@ -48,8 +48,34 @@ cd android && ./gradlew assembleDebug
 ```
 
 The APK lands at `android/app/build/outputs/apk/debug/app-debug.apk` and can be
-sideloaded (`adb install`) directly. A release build (`assembleRelease` /
-`bundleRelease`) additionally needs a signing keystore.
+sideloaded (`adb install`) directly.
+
+## Build a signed release
+
+Release signing reads `android/app/keystore.properties`, which points at an
+upload keystore. Both files are gitignored and must be kept private and backed
+up. `keystore.properties` looks like:
+
+```properties
+storeFile=upload-keystore.jks
+storePassword=…
+keyAlias=upload
+keyPassword=…
+```
+
+Then:
+
+```sh
+export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+export ANDROID_HOME="$HOME/Android/Sdk"
+cd android && ./gradlew bundleRelease   # -> app/build/outputs/bundle/release/app-release.aab (Play upload)
+./gradlew assembleRelease               # -> app/build/outputs/apk/release/app-release.apk (sideload)
+```
+
+The `.aab` is what Google Play wants. This project uses Play App Signing, so the
+keystore above is the *upload* key (resettable via Play if lost); Google holds
+the actual app-signing key. Bump `versionCode` in `app/build.gradle` for each
+Play upload.
 
 ## License
 
