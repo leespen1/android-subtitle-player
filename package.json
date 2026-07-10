@@ -13,7 +13,9 @@
   "dependencies": {
     "@capacitor/android": "^6.2.1",
     "@capacitor/cli": "^6.2.1",
-    "@capacitor/core": "^6.2.1"
+    "@capacitor/core": "^6.2.1",
+    "@capacitor/screen-orientation": "^6.0.4",
+    "@capacitor/status-bar": "^6.0.3"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5"

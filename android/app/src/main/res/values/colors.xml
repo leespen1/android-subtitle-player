@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App background, matching the web app; used for the window, system
+         bars, and any display-cutout area so nothing shows as white. -->
+    <color name="appBg">#FF080706</color>
+</resources>

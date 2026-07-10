@@ -111,6 +111,14 @@
     display: flex; align-items: center; justify-content: center;
   }
   #infoBtn:active { background: #2a241b; }
+  #rotateBtn {
+    position: absolute; top: 12px; left: 64px; z-index: 5;
+    width: 44px; height: 44px; border-radius: 10px;
+    background: rgba(28,24,19,0.6); color: var(--amber-dim);
+    border: 1px solid var(--line); font-size: 22px; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #rotateBtn:active { background: #2a241b; }
   #uiBtn {
     position: absolute; top: 12px; right: 64px; z-index: 5;
     height: 44px; padding: 0 14px; border-radius: 10px;
@@ -124,6 +132,7 @@
      stay tappable so the interface can be brought back. */
   #player.chrome-hidden #controls { display: none; }
   #player.chrome-hidden #infoBtn,
+  #player.chrome-hidden #rotateBtn,
   #player.chrome-hidden #fsBtn { opacity: 0.35; }
   /* "Upcoming lines" toggle hides the next-line preview entirely. */
   #player.hide-next #next { display: none; }
@@ -236,6 +245,7 @@
 <div id="player">
   <div id="stage">
     <button id="infoBtn" aria-label="About and instructions">ℹ&#xFE0E;</button>
+    <button id="rotateBtn" aria-label="Rotate between portrait and landscape">⟳</button>
     <button id="uiBtn" aria-label="Hide interface">Hide</button>
     <button id="fsBtn" aria-label="Toggle fullscreen">⛶</button>
     <div id="current"></div>
@@ -532,23 +542,83 @@ Source code:
   try { storedNext = localStorage.getItem("sp-show-upcoming"); } catch (e) { /* storage may be unavailable */ }
   setShowNext(storedNext !== "0"); // default: upcoming lines shown
 
-  // fullscreen toggle (must not bubble to the stage play/pause handler)
-  $("fsBtn").addEventListener("click", function (e) {
-    e.stopPropagation();
-    var el = document.documentElement;
-    var fsEl = document.fullscreenElement || document.webkitFullscreenElement;
-    if (!fsEl) {
-      (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
-    } else {
-      (document.exitFullscreen || document.webkitExitFullscreen).call(document);
-    }
-  });
-  document.addEventListener("fullscreenchange", updateFsIcon);
-  document.addEventListener("webkitfullscreenchange", updateFsIcon);
-  function updateFsIcon() {
-    var fsEl = document.fullscreenElement || document.webkitFullscreenElement;
-    $("fsBtn").textContent = fsEl ? "🡾" : "⛶";
+  // Native (Capacitor) plugins, present only inside the Android app. On the
+  // plain website these stay null and the web fallbacks below are used instead.
+  var cap = window.Capacitor;
+  function nativePlugin(name) {
+    if (!cap) return null;
+    try { if (cap.registerPlugin) return cap.registerPlugin(name); } catch (e) { /* ignore */ }
+    return (cap.Plugins && cap.Plugins[name]) || null;
   }
+  var nativeStatusBar = nativePlugin("StatusBar");
+  var nativeOrientation = nativePlugin("ScreenOrientation");
+
+  function webFsElement() {
+    return document.fullscreenElement || document.webkitFullscreenElement;
+  }
+
+  // Fullscreen toggle. On the web it uses the Fullscreen API (hides browser
+  // chrome); in the app it also hides the Android status bar. We track the
+  // intended state ourselves so it stays correct even if the WebView doesn't
+  // report Fullscreen API changes.
+  var immersive = false;
+  function applyImmersive(on) {
+    var el = document.documentElement;
+    try {
+      if (on) { (el.requestFullscreen || el.webkitRequestFullscreen || function () {}).call(el); }
+      else { (document.exitFullscreen || document.webkitExitFullscreen || function () {}).call(document); }
+    } catch (e) { /* ignore */ }
+    if (nativeStatusBar) {
+      (on ? nativeStatusBar.hide() : nativeStatusBar.show())
+        .catch(function () { /* plugin may be absent */ });
+    }
+    $("fsBtn").textContent = on ? "🡾" : "⛶";
+  }
+  $("fsBtn").addEventListener("click", function (e) {
+    e.stopPropagation(); // don't also toggle play/pause via the stage handler
+    immersive = !immersive;
+    applyImmersive(immersive);
+  });
+  // Keep the icon/state honest if the user leaves web fullscreen via Esc/gesture.
+  function onFsChange() {
+    if (!webFsElement() && !nativeStatusBar) { immersive = false; $("fsBtn").textContent = "⛶"; }
+  }
+  document.addEventListener("fullscreenchange", onFsChange);
+  document.addEventListener("webkitfullscreenchange", onFsChange);
+
+  // Rotate: toggle between portrait and landscape. The app locks orientation
+  // natively; the website falls back to the Screen Orientation API, which only
+  // works while fullscreen (and only on browsers that support it).
+  function isLandscape() {
+    if (screen.orientation && typeof screen.orientation.type === "string") {
+      return screen.orientation.type.indexOf("landscape") === 0;
+    }
+    return window.innerWidth > window.innerHeight;
+  }
+  function toggleOrientation() {
+    var target = isLandscape() ? "portrait" : "landscape";
+    if (nativeOrientation) {
+      nativeOrientation.lock({ orientation: target }).catch(function () { /* ignore */ });
+      return;
+    }
+    if (!(screen.orientation && screen.orientation.lock)) return; // unsupported (e.g. iOS)
+    var el = document.documentElement;
+    var entered = false;
+    var ready = Promise.resolve();
+    if (!webFsElement() && el.requestFullscreen) {
+      entered = true;
+      ready = el.requestFullscreen().catch(function () { entered = false; });
+    }
+    ready.then(function () {
+      screen.orientation.lock(target).catch(function () {
+        if (entered && document.exitFullscreen) document.exitFullscreen(); // undo if lock failed
+      });
+    });
+  }
+  $("rotateBtn").addEventListener("click", function (e) {
+    e.stopPropagation();
+    toggleOrientation();
+  });
 
   // scrubbing
   seek.addEventListener("input", function () {
