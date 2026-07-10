@@ -23,12 +23,17 @@ FONT = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
 
 V = 108.0            # VectorDrawable viewport (dp)
 CF = 0.64            # art fills 64% of the canvas, centred (safe-zone aware)
+DY = 0.03 * V        # nudge the art down slightly (it sits a touch high)
 CS = CF * V
 OFF = (V - CS) / 2.0
 
 
 def fx(f):
     return OFF + f * CS
+
+
+def fy(f):
+    return OFF + f * CS + DY
 
 
 def rrect_path(x0, y0, x1, y1, r):
@@ -91,7 +96,7 @@ def build():
     paths = []  # (d, fill, stroke, stroke_width, round_caps)
 
     # TV outline
-    tv = (fx(0.075), fx(0.09), fx(0.925), fx(0.62))
+    tv = (fx(0.075), fy(0.09), fx(0.925), fy(0.62))
     paths.append((rrect_path(*tv, CS * 0.03), "none", WHITE, CS * 0.020, False))
 
     # App name, two lines, sized to fill the TV
@@ -112,7 +117,7 @@ def build():
         paths.append((txt.path(s, scale, cx - w / 2, baseline), WHITE, "none", 0, False))
 
     # Phone with subtitle squiggles
-    ph = (fx(0.31), fx(0.69), fx(0.69), fx(0.93))
+    ph = (fx(0.31), fy(0.69), fx(0.69), fy(0.93))
     paths.append((rrect_path(*ph, CS * 0.035), PANEL, WHITE, CS * 0.016, False))
     pw, phh = ph[2] - ph[0], ph[3] - ph[1]
     pad = pw * 0.16
