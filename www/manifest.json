@@ -1,0 +1,16 @@
+{
+  "name": "Subtitle Player",
+  "short_name": "Subtitle Player",
+  "description": "Read movie subtitles on your phone while the film plays on a TV. Load an .srt or .vtt file, press play, and nudge the sync to match.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#080706",
+  "theme_color": "#080706",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "name": "subtitle-player-android",
+  "version": "1.0.0",
+  "description": "Capacitor Android wrapper for Subtitle Player",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "scripts": {
+    "sync-web": "node scripts/sync-web.mjs",
+    "copy": "cap copy android",
+    "sync": "npm run sync-web && cap sync android",
+    "open": "cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.2.1",
+    "@capacitor/cli": "^6.2.1",
+    "@capacitor/core": "^6.2.1"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5"
+  }
+}

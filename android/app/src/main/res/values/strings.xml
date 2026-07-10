@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Subtitle Player</string>
+    <string name="title_activity_main">Subtitle Player</string>
+    <string name="package_name">net.spencerlee.subtitleplayer</string>
+    <string name="custom_url_scheme">net.spencerlee.subtitleplayer</string>
+</resources>

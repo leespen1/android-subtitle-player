@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<!--
+  Subtitle Player - read movie subtitles on your phone while the film plays on a TV.
+  Copyright (C) 2026 Spencer Lee
+
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU Affero General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU Affero General Public License for more details.
+
+  You should have received a copy of the GNU Affero General Public License
+  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#080706">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Subtitle Player">
+<title>Subtitle Player</title>
+<style>
+  :root {
+    --bg: #080706;
+    --bg-panel: #12100d;
+    --amber: #f0cf94;
+    --amber-dim: #6b5a3a;
+    --amber-next: #4a3f2a;
+    --line: #241f18;
+    --tap: #1c1813;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; height: 100%;
+    background: var(--bg);
+    color: var(--amber);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    overscroll-behavior: none;
+  }
+  body {
+    display: flex; flex-direction: column;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+
+  /* ---- Loader (before a file is chosen) ---- */
+  #loader {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 20px;
+    padding: 32px; text-align: center;
+  }
+  #loader h1 {
+    font-size: 20px; font-weight: 600; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--amber-dim); margin: 0;
+  }
+  #loader p { color: var(--amber-next); font-size: 14px; max-width: 22em; line-height: 1.5; margin: 0; }
+  .pickbtn {
+    margin-top: 8px; padding: 16px 28px; font-size: 16px; font-weight: 600;
+    color: var(--bg); background: var(--amber); border: none; border-radius: 12px;
+    letter-spacing: 0.02em;
+  }
+  #fileInput { display: none; }
+
+  /* ---- Player ---- */
+  #player { flex: 1; display: none; flex-direction: column; }
+  #player.active { display: flex; }
+
+  #stage {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 24px 22px; gap: 22px; position: relative;
+  }
+  #current {
+    font-size: clamp(26px, 7.5vw, 46px);
+    line-height: 1.28; font-weight: 500; text-align: center;
+    text-wrap: balance; min-height: 1.28em;
+    text-shadow: 0 0 30px rgba(240,207,148,0.12);
+  }
+  #next {
+    font-size: clamp(15px, 3.6vw, 20px);
+    line-height: 1.35; font-weight: 400; text-align: center;
+    color: var(--amber-next); text-wrap: balance; min-height: 1.35em;
+  }
+  #tapHint { position: absolute; bottom: 14px; left: 0; right: 0;
+    text-align: center; font-size: 12px; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--amber-next);
+    transition: opacity .4s; pointer-events: none;
+  }
+  #fsBtn {
+    position: absolute; top: 12px; right: 12px; z-index: 5;
+    width: 44px; height: 44px; border-radius: 10px;
+    background: rgba(28,24,19,0.6); color: var(--amber-dim);
+    border: 1px solid var(--line); font-size: 20px; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #fsBtn:active { background: #2a241b; }
+  #infoBtn {
+    position: absolute; top: 12px; left: 12px; z-index: 5;
+    width: 44px; height: 44px; border-radius: 10px;
+    background: rgba(28,24,19,0.6); color: var(--amber-dim);
+    border: 1px solid var(--line); font-size: 20px; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #infoBtn:active { background: #2a241b; }
+  #uiBtn {
+    position: absolute; top: 12px; right: 64px; z-index: 5;
+    height: 44px; padding: 0 14px; border-radius: 10px;
+    background: rgba(28,24,19,0.6); color: var(--amber-dim);
+    border: 1px solid var(--line);
+    font-size: 13px; font-weight: 600; letter-spacing: 0.04em; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #uiBtn:active { background: #2a241b; }
+  /* "Hide interface" collapses the control bar; the corner buttons dim but
+     stay tappable so the interface can be brought back. */
+  #player.chrome-hidden #controls { display: none; }
+  #player.chrome-hidden #infoBtn,
+  #player.chrome-hidden #fsBtn { opacity: 0.35; }
+  /* "Upcoming lines" toggle hides the next-line preview entirely. */
+  #player.hide-next #next { display: none; }
+
+  /* ---- Info / about modal ---- */
+  #infoLink {
+    background: none; border: none; color: var(--amber-next);
+    font-size: 13px; text-decoration: underline; padding: 4px;
+  }
+  #infoModal {
+    position: fixed; inset: 0; z-index: 50; display: none;
+    align-items: center; justify-content: center; padding: 24px;
+    background: rgba(4,3,2,0.72);
+  }
+  #infoModal.open { display: flex; }
+  #infoPanel {
+    background: var(--bg-panel); border: 1px solid var(--line);
+    border-radius: 14px; width: 100%; max-width: 30em;
+    max-height: 100%; overflow-y: auto; position: relative;
+    padding: 22px 22px 24px;
+  }
+  #infoPanel h2 {
+    margin: 0 0 4px; font-size: 18px; font-weight: 600;
+    letter-spacing: 0.04em; color: var(--amber);
+  }
+  #infoPanel h3 {
+    margin: 18px 0 6px; font-size: 11px; font-weight: 600;
+    letter-spacing: 0.08em; text-transform: uppercase; color: var(--amber-dim);
+  }
+  #infoPanel pre {
+    margin: 0; font-family: inherit; white-space: pre-wrap;
+    font-size: 14px; line-height: 1.55; color: var(--amber);
+  }
+  #infoPanel a { color: var(--amber); }
+  #infoClose {
+    position: absolute; top: 10px; right: 10px;
+    width: 40px; height: 40px; border-radius: 10px;
+    background: var(--tap); color: var(--amber-dim);
+    border: 1px solid var(--line); font-size: 20px; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #infoClose:active { background: #2a241b; }
+
+  /* ---- Controls ---- */
+  #controls {
+    background: var(--bg-panel); border-top: 1px solid var(--line);
+    padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  #scrub { display: flex; align-items: center; gap: 12px; font-variant-numeric: tabular-nums; }
+  #scrub input[type=range] {
+    flex: 1; -webkit-appearance: none; appearance: none;
+    height: 4px; border-radius: 4px; background: var(--line); margin: 0;
+  }
+  #scrub input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%;
+    background: var(--amber); border: none;
+  }
+  #scrub input[type=range]::-moz-range-thumb {
+    width: 18px; height: 18px; border-radius: 50%; background: var(--amber); border: none;
+  }
+  .time { font-size: 12px; color: var(--amber-dim); min-width: 44px; }
+  .time.right { text-align: right; }
+
+  #bar { display: flex; align-items: center; gap: 10px; }
+  .btn {
+    background: var(--tap); color: var(--amber); border: 1px solid var(--line);
+    border-radius: 12px; font-size: 15px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+    height: 52px; touch-action: manipulation;
+  }
+  .btn:active { background: #2a241b; }
+  #playBtn { flex: 1.4; font-size: 17px; }
+  .sync { flex: 1; flex-direction: column; gap: 1px; font-size: 18px; }
+  .sync small { font-size: 10px; font-weight: 500; color: var(--amber-dim); letter-spacing: 0.04em; }
+
+  #offsetRow {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 12px; color: var(--amber-dim);
+  }
+  #offsetRow button {
+    background: none; border: 1px solid var(--line); color: var(--amber-dim);
+    font-size: 13px; padding: 6px 10px; border-radius: 8px; margin-left: 6px;
+  }
+  #offsetRow button:active { background: #2a241b; }
+  #viewRow { display: flex; align-items: center; gap: 8px; }
+  #viewRow button {
+    background: none; border: 1px solid var(--line); color: var(--amber-dim);
+    font-size: 12px; padding: 6px 10px; border-radius: 8px;
+  }
+  #viewRow button:active { background: #2a241b; }
+  .syncctl { display: flex; align-items: center; gap: 2px; }
+  #reset { text-decoration: none; }
+  #offsetVal { color: var(--amber); font-variant-numeric: tabular-nums; }
+  .name { font-size: 11px; color: var(--amber-next); max-width: 55%;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+</style>
+</head>
+<body>
+
+<div id="loader">
+  <h1>Subtitle Player</h1>
+  <p>Load a subtitle file, then press play the moment the movie starts on your TV. Nudge the sync if it drifts.</p>
+  <button class="pickbtn" id="pickBtn">Choose .srt file</button>
+  <input type="file" id="fileInput">
+  <p id="status" style="color:var(--amber-dim);min-height:1.2em;font-size:13px"></p>
+  <button id="infoLink" type="button">About &amp; instructions</button>
+</div>
+
+<div id="player">
+  <div id="stage">
+    <button id="infoBtn" aria-label="About and instructions">ℹ&#xFE0E;</button>
+    <button id="uiBtn" aria-label="Hide interface">Hide</button>
+    <button id="fsBtn" aria-label="Toggle fullscreen">⛶</button>
+    <div id="current"></div>
+    <div id="next"></div>
+    <div id="tapHint">Tap here to play / pause</div>
+  </div>
+
+  <div id="controls">
+    <div id="scrub">
+      <span class="time" id="cur">0:00</span>
+      <input type="range" id="seek" min="0" max="100" value="0" step="0.1">
+      <span class="time right" id="dur">0:00</span>
+    </div>
+    <div id="bar">
+      <button class="btn sync" id="back"><span>« 10s</span><small>REWIND</small></button>
+      <button class="btn" id="playBtn">▶ Play</button>
+      <button class="btn sync" id="fwd"><span>10s »</span><small>FORWARD</small></button>
+    </div>
+    <div id="offsetRow">
+      <span class="name" id="fname"></span>
+      <span class="syncctl">
+        <button id="soff">−0.5</button>
+        <span>sync <span id="offsetVal">0.0s</span></span>
+        <button id="son">+0.5</button>
+        <button id="reset">reset</button>
+      </span>
+    </div>
+    <div id="viewRow">
+      <button id="nextBtn" type="button">Upcoming lines: on</button>
+    </div>
+  </div>
+</div>
+
+<div id="infoModal" role="dialog" aria-modal="true" aria-label="About Subtitle Player">
+  <div id="infoPanel">
+    <button id="infoClose" type="button" aria-label="Close">✕</button>
+    <h2>Subtitle Player</h2>
+    <h3>How to use</h3>
+<pre>1. Load an .srt or .vtt subtitle file.
+2. Press Play the moment the movie starts
+   on your TV.
+3. Tap the subtitle area to play or pause.
+4. Jump 10s with the rewind/forward buttons,
+   or drag the scrubber to seek anywhere.
+5. If the subtitles drift out of sync, nudge
+   them with the -0.5 / +0.5 buttons; reset
+   sets the offset back to zero.
+6. The screen stays awake while playing, and
+   the fullscreen button hides everything else.
+
+Everything runs in your browser. Nothing is
+uploaded anywhere.</pre>
+    <h3>About</h3>
+<pre>Copyright (C) 2026 Spencer Lee
+Licensed under AGPL-3.0.
+
+Source code:
+<a href="https://github.com/leespen1/subtitle-player" target="_blank" rel="noopener">github.com/leespen1/subtitle-player</a></pre>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- SRT / VTT parsing ----------
+  function toMs(t) {
+    // handles 00:00:00,000 and 00:00:00.000 and 00:00.000
+    t = t.trim().replace(",", ".");
+    var p = t.split(":").map(parseFloat);
+    if (p.length === 3) return (p[0] * 3600 + p[1] * 60 + p[2]) * 1000;
+    if (p.length === 2) return (p[0] * 60 + p[1]) * 1000;
+    return p[0] * 1000;
+  }
+
+  function parse(text) {
+    text = text.replace(/^\uFEFF/, "").replace(/\r/g, "");
+    // strip WEBVTT header if present
+    text = text.replace(/^WEBVTT[^\n]*\n/, "");
+    var blocks = text.split(/\n{2,}/);
+    var cues = [];
+    var timeRe = /(\d{1,2}:)?\d{1,2}:\d{2}[.,]\d{1,3}\s*-->\s*(\d{1,2}:)?\d{1,2}:\d{2}[.,]\d{1,3}/;
+    for (var i = 0; i < blocks.length; i++) {
+      var lines = blocks[i].split("\n");
+      var timeLine = -1;
+      for (var j = 0; j < lines.length; j++) {
+        if (timeRe.test(lines[j])) { timeLine = j; break; }
+      }
+      if (timeLine === -1) continue;
+      var parts = lines[timeLine].split("-->");
+      var start = toMs(parts[0].trim().split(/\s+/)[0]);
+      var end = toMs(parts[1].trim().split(/\s+/)[0]);
+      if (isNaN(start) || isNaN(end)) continue;
+      var body = lines.slice(timeLine + 1).join("\n")
+        .replace(/<[^>]+>/g, "")            // strip tags
+        .replace(/\{[^}]+\}/g, "")          // strip ASS-style overrides
+        .trim();
+      if (body) cues.push({ start: start, end: end, text: body });
+    }
+    cues.sort(function (a, b) { return a.start - b.start; });
+    return cues;
+  }
+
+  // ---------- State ----------
+  var cues = [];
+  var playing = false;
+  var baseWall = 0;      // performance.now() reference at play start
+  var elapsed = 0;       // ms of movie time accumulated while paused
+  var offset = 0;        // ms manual sync offset (added to movie clock)
+  var duration = 0;
+  var raf = null;
+  var wakeLock = null;
+
+  // ---------- Elements ----------
+  var $ = function (id) { return document.getElementById(id); };
+  var loader = $("loader"), player = $("player");
+  var curEl = $("current"), nextEl = $("next"), hint = $("tapHint");
+  var seek = $("seek"), curT = $("cur"), durT = $("dur");
+  var playBtn = $("playBtn"), offsetVal = $("offsetVal"), fname = $("fname");
+
+  function fmt(ms) {
+    if (ms < 0) ms = 0;
+    var s = Math.floor(ms / 1000);
+    var m = Math.floor(s / 60), h = Math.floor(m / 60);
+    s %= 60; m %= 60;
+    var mm = (h ? String(m).padStart(2, "0") : m);
+    return (h ? h + ":" : "") + mm + ":" + String(s).padStart(2, "0");
+  }
+
+  function now() {
+    return playing ? elapsed + (performance.now() - baseWall) : elapsed;
+  }
+
+  function findCue(t) {
+    // t already includes offset
+    var lo = 0, hi = cues.length - 1, hit = -1;
+    while (lo <= hi) {
+      var mid = (lo + hi) >> 1;
+      if (cues[mid].start <= t) { hit = mid; lo = mid + 1; }
+      else hi = mid - 1;
+    }
+    return hit;
+  }
+
+  function render() {
+    var t = now() + offset;
+    var i = findCue(t);
+    var showing = "";
+    if (i >= 0 && t <= cues[i].end) showing = cues[i].text;
+    curEl.textContent = showing;
+
+    // next upcoming line preview
+    var nxt = "";
+    for (var k = (i < 0 ? 0 : i + (showing ? 1 : 0)); k < cues.length; k++) {
+      if (cues[k].start > t) { nxt = cues[k].text; break; }
+    }
+    nextEl.textContent = nxt;
+
+    var wall = now();
+    curT.textContent = fmt(wall);
+    if (duration > 0) seek.value = Math.min(100, (wall / duration) * 100);
+  }
+
+  function loop() {
+    render();
+    if (playing) raf = requestAnimationFrame(loop);
+  }
+
+  async function requestWake() {
+    try {
+      if ("wakeLock" in navigator) wakeLock = await navigator.wakeLock.request("screen");
+    } catch (e) { /* ignore */ }
+  }
+  function releaseWake() {
+    if (wakeLock) { wakeLock.release().catch(function(){}); wakeLock = null; }
+  }
+
+  function play() {
+    if (playing) return;
+    playing = true;
+    baseWall = performance.now();
+    playBtn.textContent = "❚❚ Pause";
+    hint.style.opacity = "0";
+    requestWake();
+    loop();
+  }
+  function pause() {
+    if (!playing) return;
+    elapsed = now();
+    playing = false;
+    playBtn.textContent = "▶ Play";
+    releaseWake();
+    if (raf) cancelAnimationFrame(raf);
+    render();
+  }
+  function toggle() { playing ? pause() : play(); }
+
+  function setElapsed(ms) {
+    ms = Math.max(0, Math.min(duration, ms));
+    elapsed = ms;
+    if (playing) baseWall = performance.now();
+    render();
+  }
+
+  function bumpOffset(ms) {
+    offset += ms;
+    offsetVal.textContent = (offset / 1000).toFixed(1) + "s";
+    render();
+  }
+
+  // ---------- Wiring ----------
+  $("pickBtn").addEventListener("click", function () { $("fileInput").click(); });
+  $("fileInput").addEventListener("change", function (e) {
+    var f = e.target.files[0];
+    var status = $("status");
+    if (!f) { status.textContent = "No file selected."; return; }
+    status.textContent = "Reading " + f.name + " …";
+    var r = new FileReader();
+    r.onerror = function () { status.textContent = "Couldn't read that file."; };
+    r.onload = function () {
+      try {
+        cues = parse(String(r.result));
+      } catch (err) {
+        status.textContent = "Error parsing: " + err.message;
+        return;
+      }
+      if (!cues.length) {
+        status.textContent = "No subtitle lines found — is this an .srt/.vtt file?";
+        return;
+      }
+      duration = cues[cues.length - 1].end + 3000;
+      durT.textContent = fmt(duration);
+      fname.textContent = f.name;
+      elapsed = 0; offset = 0; playing = false;
+      offsetVal.textContent = "0.0s";
+      playBtn.textContent = "▶ Play";
+      loader.style.display = "none";
+      player.classList.add("active");
+      render();
+    };
+    r.readAsText(f);
+  });
+
+  playBtn.addEventListener("click", toggle);
+  $("back").addEventListener("click", function () { setElapsed(now() - 10000); });
+  $("fwd").addEventListener("click", function () { setElapsed(now() + 10000); });
+  $("soff").addEventListener("click", function () { bumpOffset(-500); });
+  $("son").addEventListener("click", function () { bumpOffset(500); });
+  $("reset").addEventListener("click", function () { offset = 0; offsetVal.textContent = "0.0s"; render(); });
+
+  // tap the subtitle area to toggle
+  $("stage").addEventListener("click", toggle);
+
+  // info / about modal
+  var infoModal = $("infoModal");
+  function openInfo() { infoModal.classList.add("open"); }
+  function closeInfo() { infoModal.classList.remove("open"); }
+  $("infoLink").addEventListener("click", openInfo);
+  $("infoBtn").addEventListener("click", function (e) {
+    e.stopPropagation(); // don't also toggle play/pause via the stage handler
+    openInfo();
+  });
+  $("infoClose").addEventListener("click", closeInfo);
+  infoModal.addEventListener("click", function (e) {
+    if (e.target === infoModal) closeInfo(); // click the backdrop, not the panel
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && infoModal.classList.contains("open")) closeInfo();
+  });
+
+  // hide / show the control interface for a clean, subtitles-only view
+  var uiBtn = $("uiBtn");
+  function setChromeHidden(hidden) {
+    player.classList.toggle("chrome-hidden", hidden);
+    uiBtn.textContent = hidden ? "Show" : "Hide";
+    uiBtn.setAttribute("aria-label", hidden ? "Show interface" : "Hide interface");
+  }
+  uiBtn.addEventListener("click", function (e) {
+    e.stopPropagation(); // don't also toggle play/pause via the stage handler
+    setChromeHidden(!player.classList.contains("chrome-hidden"));
+  });
+
+  // toggle the small upcoming-lines preview, remembering the choice
+  var nextBtn = $("nextBtn");
+  function setShowNext(show) {
+    player.classList.toggle("hide-next", !show);
+    nextBtn.textContent = "Upcoming lines: " + (show ? "on" : "off");
+    try { localStorage.setItem("sp-show-upcoming", show ? "1" : "0"); } catch (e) { /* storage may be unavailable */ }
+  }
+  nextBtn.addEventListener("click", function () {
+    setShowNext(player.classList.contains("hide-next")); // was hidden -> show it
+  });
+  var storedNext = null;
+  try { storedNext = localStorage.getItem("sp-show-upcoming"); } catch (e) { /* storage may be unavailable */ }
+  setShowNext(storedNext !== "0"); // default: upcoming lines shown
+
+  // fullscreen toggle (must not bubble to the stage play/pause handler)
+  $("fsBtn").addEventListener("click", function (e) {
+    e.stopPropagation();
+    var el = document.documentElement;
+    var fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+    if (!fsEl) {
+      (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
+    } else {
+      (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    }
+  });
+  document.addEventListener("fullscreenchange", updateFsIcon);
+  document.addEventListener("webkitfullscreenchange", updateFsIcon);
+  function updateFsIcon() {
+    var fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+    $("fsBtn").textContent = fsEl ? "🡾" : "⛶";
+  }
+
+  // scrubbing
+  seek.addEventListener("input", function () {
+    setElapsed((seek.value / 100) * duration);
+  });
+
+  // re-acquire wake lock when tab returns to foreground
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible" && playing) requestWake();
+  });
+
+  // Register the service worker so the app installs as a PWA and works offline.
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("sw.js").catch(function () { /* offline-only feature; ignore */ });
+    });
+  }
+})();
+</script>
+</body>
+</html>
