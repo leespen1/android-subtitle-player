@@ -22,7 +22,7 @@ WHITE = "#F0EEEE"
 FONT = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
 
 V = 108.0            # VectorDrawable viewport (dp)
-CF = 0.66            # art fills 66% of the canvas, centred (safe-zone aware)
+CF = 0.64            # art fills 64% of the canvas, centred (safe-zone aware)
 CS = CF * V
 OFF = (V - CS) / 2.0
 
