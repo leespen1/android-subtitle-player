@@ -136,6 +136,16 @@
   #player.chrome-hidden #fsBtn { opacity: 0.35; }
   /* "Upcoming lines" toggle hides the next-line preview entirely. */
   #player.hide-next #next { display: none; }
+  /* Brief label shown when the rotate button changes orientation mode. */
+  #orientToast {
+    position: absolute; top: 18%; left: 50%; transform: translateX(-50%);
+    z-index: 6; padding: 8px 16px; border-radius: 999px;
+    background: rgba(18,16,13,0.85); border: 1px solid var(--line);
+    color: var(--amber); font-size: 14px; font-weight: 600;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    opacity: 0; transition: opacity .45s; pointer-events: none;
+  }
+  #orientToast.show { opacity: 1; transition: opacity .12s; }
 
   /* ---- Info / about modal ---- */
   #infoLink {
@@ -251,6 +261,7 @@
     <div id="current"></div>
     <div id="next"></div>
     <div id="tapHint">Tap here to play / pause</div>
+    <div id="orientToast"></div>
   </div>
 
   <div id="controls">
@@ -621,10 +632,20 @@ Source code:
       });
     });
   }
+  var orientToast = $("orientToast");
+  var orientToastTimer = null;
+  function showOrientToast(mode) {
+    orientToast.textContent = mode.charAt(0).toUpperCase() + mode.slice(1);
+    orientToast.classList.add("show");
+    if (orientToastTimer) clearTimeout(orientToastTimer);
+    orientToastTimer = setTimeout(function () { orientToast.classList.remove("show"); }, 900);
+  }
   $("rotateBtn").addEventListener("click", function (e) {
     e.stopPropagation();
     orientIdx = (orientIdx + 1) % ORIENT_MODES.length;
-    applyOrientation(ORIENT_MODES[orientIdx]);
+    var mode = ORIENT_MODES[orientIdx];
+    applyOrientation(mode);
+    showOrientToast(mode);
   });
 
   // scrubbing
