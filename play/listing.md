@@ -34,6 +34,10 @@ Everything runs on your device. Your subtitle files are never uploaded, and the
 app collects no data, needs no network connection, and requests no unnecessary
 permissions.
 
+SUPPORT
+The app is free and ad-free. If it helped you enjoy a film, you can leave a tip:
+https://ko-fi.com/spencerleeresearch
+
 Free and open source (AGPL-3.0):
 https://github.com/leespen1/android-subtitle-player
 
